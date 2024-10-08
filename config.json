@@ -1,0 +1,18 @@
+{
+    "name": "Record Limit",
+    "namespace": "WeillCornellMedicine\\RecordLimit", 
+    "description": "Limit the number of records for projects in development status.",
+    "framework-version": 14,
+    "authors": [
+        {
+            "name": "Quazi Irfan",
+            "email": "qui4001@med.cornell.edu",
+            "institution": "Weill Cornell Medical College"
+        },
+        {
+            "name": "Jessie Lee",
+            "email": "jel2025@med.cornell.edu",
+            "institution": "Weill Cornell Medical College"
+        }
+    ]
+}
