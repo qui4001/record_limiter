@@ -14,7 +14,6 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
     }
 
     function redcap_every_page_top($project_id){
-        echo 'Record Limiter';
         // user_rights = '0' no access
         // user_rights = '2' Read Only
         // user_rights = '1' Full access
@@ -25,7 +24,6 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
         else
             $record_limit = (int)$record_limit['system_value']; // what is the diff between system_value and value
         
-        echo $record_limit;
         $user_info = $this->getUser(); 
 
         if(!$user_info->isSuperUser()){
@@ -50,7 +48,8 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
                     // 1 Full Access > 0 No Access 
                     if ($row['user_rights'] == 1)
                         $this->run('user_rights', 0, $row['username'], $row['project_id']);
-                }        
+                }
+                echo '<div class="red"><b>Record Limiter</b> is revoking right to add new records (max allowed '.$record_limit.') and edit user rights for all users in this project. To restore them either delete records or move to production.</div>';      
             } else {
                 // restore
                 while($row = $project_users_query->fetch_assoc()){
