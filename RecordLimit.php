@@ -11,6 +11,16 @@ namespace WeillCornellMedicine\RecordLimit;
 
 class RecordLimit extends \ExternalModules\AbstractExternalModule
 {
+    function run($field_name, $field_value, $user_name, $project_id){
+        $enable_limit = $this->query(
+            "update redcap_user_rights set $field_name = ? WHERE username = ? and project_id = ?",
+            [$field_value, $user_name, $project_id]
+        );
+
+        $temp_query = "update redcap_user_rights set $field_name = $field_value WHERE username = '$user_name' and project_id = $project_id";
+        \REDCap::logEvent("Updated User rights " . $user_name, "user = '" . $user_name. "'", $temp_query, NULL, NULL, $project_id);
+    }
+
     function redcap_every_page_top($project_id){
         echo 'Record Limiter';
         // redcap_log_events10 user column tells us who made the last change
@@ -36,33 +46,37 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
                 where project_id = ?';
         $project_result = $this->query($project_query, [$project_id])->fetch_assoc();
 
-        $create_record_result = $this->query("select record_create from redcap_user_rights where username = ? and project_id = ?", [$current_user, $project_id])->fetch_assoc();
+        $all_rights_result = $this->query("select record_create, user_rights from redcap_user_rights where username = ? and project_id = ?", [$current_user, $project_id])->fetch_assoc();
         if($project_result['status'] == 0 && $project_result['record_count'] > 1){
             // Apply limit
-            if ($create_record_result['record_create'] == 1){
-                echo " - Limiting";
-                $enable_limit = $this->query(
-                    "update redcap_user_rights set record_create = ? WHERE username = ? and project_id = ?",
-                    [0, $current_user, $project_id]
-                );
+            if ($all_rights_result['record_create'] == 1){
+                echo " - Limiting"; // 1 > 0
+                $this->run('record_create', 0, $current_user, $project_id);
+                // $enable_limit = $this->query(
+                //     "update redcap_user_rights set record_create = ? WHERE username = ? and project_id = ?",
+                //     [0, $current_user, $project_id]
+                // );
     
-                $temp_query = "update redcap_user_rights set record_create = 0 WHERE username = '$current_user' and project_id = $project_id";
-                \REDCap::logEvent("Updated User rights " . $current_user, "user = '" . $current_user. "'", $temp_query, NULL, NULL, $project_id);
+                // $temp_query = "update redcap_user_rights set record_create = 0 WHERE username = '$current_user' and project_id = $project_id";
+                // \REDCap::logEvent("Updated User rights " . $current_user, "user = '" . $current_user. "'", $temp_query, NULL, NULL, $project_id);
             } else {
                 // Limit was applied already
                 echo " - Limiting already";
             }
         } else {
             // Remove limit
-            if ($create_record_result['record_create'] == 0){
-                echo " - Removing limit";
-                $disable_limit = $this->query(
-                    "update redcap_user_rights set record_create = ? WHERE username = ? and project_id = ?",
-                    [1, $current_user, $project_id]
-                );
+
+            if ($all_rights_result['record_create'] == 0){
+                $this->run('record_create', 1, $current_user, $project_id);
+
+                // echo " - Removing limit";
+                // $disable_limit = $this->query(
+                //     "update redcap_user_rights set record_create = ? WHERE username = ? and project_id = ?",
+                //     [1, $current_user, $project_id]
+                // );
     
-                $temp_query = "update redcap_user_rights set record_create = 1 WHERE username = '$current_user' and project_id = $project_id";
-                \REDCap::logEvent("Updated User rights " . $current_user, "user = '" . $current_user. "'", $temp_query, NULL, NULL, $project_id);
+                // $temp_query = "update redcap_user_rights set record_create = 1 WHERE username = '$current_user' and project_id = $project_id";
+                // \REDCap::logEvent("Updated User rights " . $current_user, "user = '" . $current_user. "'", $temp_query, NULL, NULL, $project_id);
             } else {
                 // Limit was removed already
                 echo " - Removed limit already";
