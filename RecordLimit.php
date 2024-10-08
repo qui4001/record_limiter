@@ -42,30 +42,32 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
         if(!$user_info->isSuperUser()){
             $current_user = $user_info->getUsername();
             $project_query = 'SELECT project_id, status, record_count
-                FROM redcap_projects 
-                    left join redcap_record_counts using (project_id) 
-                where project_id = ?';
+                                FROM redcap_projects 
+                                    left join redcap_record_counts using (project_id) 
+                                where project_id = ?';
             $project_result = $this->query($project_query, [$project_id])->fetch_assoc();
 
-            $all_rights_query = $this->query("select record_create, user_rights from redcap_user_rights where username = ? and project_id = ?", [$current_user, $project_id]);
-            $all_rights_result = $all_rights_query->fetch_assoc();
+            $project_users_query = $this->query("select username, project_id, record_create, user_rights from redcap_user_rights where project_id = ? and username not in (select username from redcap_user_information where super_user = 1)", [$project_id]);
             if($project_result['status'] == 0 && $project_result['record_count'] > 1){
-                // Apply limit 1 > 0
-                if ($all_rights_result['record_create'] == 1)
-                    $this->run('record_create', 0, $current_user, $project_id);        
-                
-                // 1 Full Access > 0 No Access 
-                if ($all_rights_result['user_rights'] == 1)
-                    $this->run('user_rights', 0, $current_user, $project_id);        
+                while($row = $project_users_query->fetch_assoc()){
+                    // Apply limit 1 > 0
+                    if ($row['record_create'] == 1)
+                        $this->run('record_create', 0, $row['username'], $row['project_id']);        
 
+                    // 1 Full Access > 0 No Access 
+                    if ($row['user_rights'] == 1)
+                        $this->run('user_rights', 0, $row['username'], $row['project_id']);
+                }        
             } else {
-                // Remove limit 0 > 1
-                if ($all_rights_result['record_create'] == 0)
-                    $this->run('record_create', 1, $current_user, $project_id);
+                while($row = $project_users_query->fetch_assoc()){
+                    // Remove limit 0 > 1
+                    if ($row['record_create'] == 0)
+                        $this->run('record_create', 1, $row['username'], $row['project_id']);
 
-                // 0 No Access > 1 Full Access
-                if ($all_rights_result['user_rights'] == 0)
-                    $this->run('user_rights', 1, $current_user, $project_id);  
+                    // 0 No Access > 1 Full Access
+                    if ($row['user_rights'] == 0)
+                            $this->run('user_rights', 1, $row['username'], $row['project_id']);  
+                }
             }
         }
     }
