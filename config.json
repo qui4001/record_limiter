@@ -14,5 +14,13 @@
             "email": "jel2025@med.cornell.edu",
             "institution": "Weill Cornell Medical College"
         }
-    ]
+    ],
+    "system-settings": [
+        {
+          "key": "record_limit",
+          "name": "Max number of records(Default: 5)",
+          "required": true,
+          "type": "text"
+        }
+      ]
 }

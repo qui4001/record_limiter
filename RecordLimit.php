@@ -1,14 +1,6 @@
 <?php
 namespace WeillCornellMedicine\RecordLimit;
 
-// Have Note saying; you have 10+ records in red
-// do we need per project record limiation?
-// there are other ways to add record (Record Status Dashboard, Export update)
-// We could request a hook for record status dashboard, but how much ground we are not covering.
-// https://redcap.ctsc.weill.cornell.edu/redcap_protocols/redcap_v14.0.43/Plugins/index.php?HooksMethod=redcap_add_edit_records_page
-
-// find the last update for a given user
-
 class RecordLimit extends \ExternalModules\AbstractExternalModule
 {
     function run($field_name, $field_value, $user_name, $project_id){
@@ -22,23 +14,20 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
     }
 
     function redcap_every_page_top($project_id){
-        
         echo 'Record Limiter';
-        // redcap_log_events10 user column tells us who made the last change
-        // redcap_user_information tells us if an user is superuser
-        // set record_create = '1' to redcap_user_rights to disable user rights
-        // Remove rights 
         // user_rights = '0' no access
         // user_rights = '2' Read Only
         // user_rights = '1' Full access
-        $user_info = $this->getUser();
 
-        // ignore script if current user is a superuser
-        // before we make changes, we look through redcap_user_rights.user if made any change to redcap_user_rights.page = 'UserRights/edit_user.php' where
-        // pk='test4' or data_value=user = 'test4'
-        // we extract the record_create value from sql_log
-        // we don't make any change if this last change was made by an superuser redcap_user_information.admin_rights
-        // or we do
+        $record_limit = $this->getSystemSettings()['record_limit'];
+        if ($record_limit == null)
+            $record_limit = 5;
+        else
+            $record_limit = (int)$record_limit['system_value']; // what is the diff between system_value and value
+        
+        echo $record_limit;
+        $user_info = $this->getUser(); 
+
         if(!$user_info->isSuperUser()){
             $current_user = $user_info->getUsername();
             $project_query = 'SELECT project_id, status, record_count
@@ -47,8 +36,12 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
                                 where project_id = ?';
             $project_result = $this->query($project_query, [$project_id])->fetch_assoc();
 
-            $project_users_query = $this->query("select username, project_id, record_create, user_rights from redcap_user_rights where project_id = ? and username not in (select username from redcap_user_information where super_user = 1)", [$project_id]);
-            if($project_result['status'] == 0 && $project_result['record_count'] > 1){
+            $project_users_query = $this->query("select username, project_id, record_create, user_rights 
+                                                from redcap_user_rights 
+                                                where project_id = ? and 
+                                                    username not in (select username from redcap_user_information where super_user = 1)", [$project_id]);
+            if($project_result['status'] == 0 && $project_result['record_count'] >= $record_limit){
+                // revoke
                 while($row = $project_users_query->fetch_assoc()){
                     // Apply limit 1 > 0
                     if ($row['record_create'] == 1)
@@ -59,6 +52,7 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
                         $this->run('user_rights', 0, $row['username'], $row['project_id']);
                 }        
             } else {
+                // restore
                 while($row = $project_users_query->fetch_assoc()){
                     // Remove limit 0 > 1
                     if ($row['record_create'] == 0)
@@ -66,7 +60,7 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
 
                     // 0 No Access > 1 Full Access
                     if ($row['user_rights'] == 0)
-                            $this->run('user_rights', 1, $row['username'], $row['project_id']);  
+                        $this->run('user_rights', 1, $row['username'], $row['project_id']);  
                 }
             }
         }
