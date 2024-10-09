@@ -32,13 +32,14 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
 
         if(!$user_info->isSuperUser()){
             $current_user = $user_info->getUsername();
-            $project_query = 'SELECT project_id, status, record_count
-                                FROM redcap_projects 
-                                    left join redcap_record_counts using (project_id) 
-                                where project_id = ?';
-            $project_result = $this->query($project_query, [$project_id])->fetch_assoc();
+            
+            $project_query = $this->query("SELECT project_id, status, record_count
+                                            FROM redcap_projects 
+                                                left join redcap_record_counts using (project_id) 
+                                            where project_id = ?", [$project_id]);
+            $project_result = $project_query->fetch_assoc();
 
-            $project_users_query = $this->query("select username, project_id, record_create, user_rights 
+            $project_users_query = $this->query("SELECT username, project_id, record_create, user_rights 
                                                 from redcap_user_rights 
                                                 where project_id = ? and 
                                                     username not in (select username from redcap_user_information where super_user = 1)", [$project_id]);
