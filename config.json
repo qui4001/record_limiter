@@ -1,6 +1,6 @@
 {
-    "name": "Record Limit",
-    "namespace": "WeillCornellMedicine\\RecordLimit", 
+    "name": "Record Limiter",
+    "namespace": "WeillCornellMedicine\\RecordLimiter", 
     "description": "Limit the number of records for projects in development status.",
     "framework-version": 14,
     "authors": [
@@ -18,16 +18,16 @@
     "system-settings": [
         {
           "key": "system_record_limit",
-          "name": "Record limit for Dev projects(Default: 10)",
-          "required": true,
+          "name": "Record limit for all Dev projects(Defaults to 10)",
+          "required": false,
           "type": "text"
         }
     ],
     "project-settings": [
         {
           "key": "project_record_limit",
-          "name": "Record limit for project(Default: 10)",
-          "required": true,
+          "name": "Record limit for this project(Defaults to 10)",
+          "required": false,
           "type": "text"
         }
     ]

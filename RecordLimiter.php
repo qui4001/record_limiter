@@ -1,11 +1,11 @@
 <?php
-namespace WeillCornellMedicine\RecordLimit;
+namespace WeillCornellMedicine\RecordLimiter;
 
 // user_rights = '0' no access
 // user_rights = '2' Read Only
 // user_rights = '1' Full access
 
-class RecordLimit extends \ExternalModules\AbstractExternalModule
+class RecordLimiter extends \ExternalModules\AbstractExternalModule
 {
     function run($field_name, $field_value, $user_name, $project_id){
         $enable_limit = $this->query(
@@ -53,7 +53,7 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
                     if ($row['user_rights'] == 1)
                         $this->run('user_rights', 0, $row['username'], $row['project_id']);
                 }
-                // echo '<div class="red"><b>Record Limiter</b> is revoking the right to <u>create record</u> (max allowed '.$record_limit.') and edit <u>user right</u> for all users in this project. To restore them either delete records or move to production.</div>';      
+                echo '<div class="red"><b>Record Limiter</b> is revoking right to <u>create record</u> (max allowed '.$record_limit.') and edit <u>user right</u> for all users in this dev project. To restore them either delete records or move to production.</div>';      
             } else {
                 // restore
                 while($row = $project_users_query->fetch_assoc()){
