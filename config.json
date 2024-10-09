@@ -18,7 +18,7 @@
     "system-settings": [
         {
           "key": "record_limit",
-          "name": "Max number of records(Default: 5)",
+          "name": "Record limit for Dev projects(Default: 10)",
           "required": true,
           "type": "text"
         }

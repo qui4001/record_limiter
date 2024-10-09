@@ -1,6 +1,8 @@
 <?php
 namespace WeillCornellMedicine\RecordLimit;
 
+// project level record limit
+
 class RecordLimit extends \ExternalModules\AbstractExternalModule
 {
     function run($field_name, $field_value, $user_name, $project_id){
@@ -20,7 +22,7 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
 
         $record_limit = $this->getSystemSettings()['record_limit'];
         if ($record_limit == null)
-            $record_limit = 5;
+            $record_limit = 10;
         else
             $record_limit = (int)$record_limit['system_value']; // what is the diff between system_value and value
         
@@ -49,7 +51,7 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
                     if ($row['user_rights'] == 1)
                         $this->run('user_rights', 0, $row['username'], $row['project_id']);
                 }
-                echo '<div class="red"><b>Record Limiter</b> is revoking right to add new records (max allowed '.$record_limit.') and edit user rights for all users in this project. To restore them either delete records or move to production.</div>';      
+                echo '<div class="red"><b>Record Limiter</b> is revoking the right to <u>create record</u> (max allowed '.$record_limit.') and edit <u>user right</u> for all users in this project. To restore them either delete records or move to production.</div>';      
             } else {
                 // restore
                 while($row = $project_users_query->fetch_assoc()){
