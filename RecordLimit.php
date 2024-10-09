@@ -1,7 +1,9 @@
 <?php
 namespace WeillCornellMedicine\RecordLimit;
 
-// project level record limit
+// user_rights = '0' no access
+// user_rights = '2' Read Only
+// user_rights = '1' Full access
 
 class RecordLimit extends \ExternalModules\AbstractExternalModule
 {
@@ -16,15 +18,15 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
     }
 
     function redcap_every_page_top($project_id){
-        // user_rights = '0' no access
-        // user_rights = '2' Read Only
-        // user_rights = '1' Full access
-
-        $record_limit = $this->getSystemSettings()['record_limit'];
-        if ($record_limit == null)
-            $record_limit = 10;
-        else
-            $record_limit = (int)$record_limit['system_value']; // what is the diff between system_value and value
+        $record_limit = $this->getProjectSettings($project_id)['project_record_limit'];
+        if($record_limit == null){
+            $record_limit = $this->getSystemSettings()['system_record_limit'];
+            if($record_limit == null)
+                $record_limit = 10;
+            else
+                $record_limit = (int)$record_limit['system_value']; // what is the diff between system_value and value
+        } else
+            $record_limit = (int)$record_limit;
         
         $user_info = $this->getUser(); 
 
@@ -51,7 +53,7 @@ class RecordLimit extends \ExternalModules\AbstractExternalModule
                     if ($row['user_rights'] == 1)
                         $this->run('user_rights', 0, $row['username'], $row['project_id']);
                 }
-                echo '<div class="red"><b>Record Limiter</b> is revoking the right to <u>create record</u> (max allowed '.$record_limit.') and edit <u>user right</u> for all users in this project. To restore them either delete records or move to production.</div>';      
+                // echo '<div class="red"><b>Record Limiter</b> is revoking the right to <u>create record</u> (max allowed '.$record_limit.') and edit <u>user right</u> for all users in this project. To restore them either delete records or move to production.</div>';      
             } else {
                 // restore
                 while($row = $project_users_query->fetch_assoc()){

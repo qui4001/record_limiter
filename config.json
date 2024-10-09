@@ -17,10 +17,18 @@
     ],
     "system-settings": [
         {
-          "key": "record_limit",
+          "key": "system_record_limit",
           "name": "Record limit for Dev projects(Default: 10)",
           "required": true,
           "type": "text"
         }
-      ]
+    ],
+    "project-settings": [
+        {
+          "key": "project_record_limit",
+          "name": "Record limit for project(Default: 10)",
+          "required": true,
+          "type": "text"
+        }
+    ]
 }
