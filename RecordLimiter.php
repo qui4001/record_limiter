@@ -7,7 +7,7 @@ namespace WeillCornellMedicine\RecordLimiter;
 
 class RecordLimiter extends \ExternalModules\AbstractExternalModule
 {
-    function run($field_name, $field_value, $user_name, $project_id){
+    function updateUserRight($field_name, $field_value, $user_name, $project_id){
         $enable_limit = $this->query(
             "update redcap_user_rights set $field_name = ? WHERE username = ? and project_id = ?",
             [$field_value, $user_name, $project_id]
@@ -48,11 +48,11 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                 while($row = $project_users_query->fetch_assoc()){
                     // Apply limit 1 > 0
                     if ($row['record_create'] == 1)
-                        $this->run('record_create', 0, $row['username'], $row['project_id']);        
+                        $this->updateUserRight('record_create', 0, $row['username'], $row['project_id']); 
 
                     // 1 Full Access > 0 No Access 
                     if ($row['user_rights'] == 1)
-                        $this->run('user_rights', 0, $row['username'], $row['project_id']);
+                        $this->updateUserRight('user_rights', 0, $row['username'], $row['project_id']);
                 }
                 echo '<div class="red"><b>Record Limiter</b> is revoking right to <u>create record</u> (max allowed '.$record_limit.') and edit <u>user right</u> for all users in this dev project. To restore them either delete records or move to production.</div>';      
             } else {
@@ -60,11 +60,11 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                 while($row = $project_users_query->fetch_assoc()){
                     // Remove limit 0 > 1
                     if ($row['record_create'] == 0)
-                        $this->run('record_create', 1, $row['username'], $row['project_id']);
+                        $this->updateUserRight('record_create', 1, $row['username'], $row['project_id']);
 
                     // 0 No Access > 1 Full Access
                     if ($row['user_rights'] == 0)
-                        $this->run('user_rights', 1, $row['username'], $row['project_id']);  
+                        $this->updateUserRight('user_rights', 1, $row['username'], $row['project_id']);
                 }
             }
         }
