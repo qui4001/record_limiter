@@ -8,13 +8,17 @@ namespace WeillCornellMedicine\RecordLimiter;
 class RecordLimiter extends \ExternalModules\AbstractExternalModule
 {
     function updateUserRight($field_name, $field_value, $user_name, $project_id){
-        $enable_limit = $this->query(
+        $local_query = $this->query(
             "update redcap_user_rights set $field_name = ? WHERE username = ? and project_id = ?",
             [$field_value, $user_name, $project_id]
         );
 
-        $temp_query = "update redcap_user_rights set $field_name = $field_value WHERE username = '$user_name' and project_id = $project_id";
-        \REDCap::logEvent("Updated User rights " . $user_name, "user = '" . $user_name. "'", $temp_query, NULL, NULL, $project_id);
+        if($local_query){
+            $temp_query = "update redcap_user_rights set $field_name = $field_value WHERE username = '$user_name' and project_id = $project_id";
+            \REDCap::logEvent("Updated User rights " . $user_name, "user = '" . $user_name. "'", $temp_query, NULL, NULL, $project_id);    
+        } else {
+            $this->log('Failed to SET ' . $field_name. '=' .$field_value.' for ' .$user_name. ' in ' .$project_id);
+        }
     }
 
     function redcap_every_page_top($project_id){
