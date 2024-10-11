@@ -1,9 +1,10 @@
 <?php
 namespace WeillCornellMedicine\RecordLimiter;
 
-// user_rights = '0' no access
-// user_rights = '2' Read Only
-// user_rights = '1' Full access
+// Look into other flags such as data import tool
+// check how to handle string input for record limit text field (error email perhaps?)
+// add record_limiter prefix to prevent global config variable collision
+// what is the diff between system_value and value
 
 class RecordLimiter extends \ExternalModules\AbstractExternalModule
 {
@@ -28,7 +29,7 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
             if($record_limit == null)
                 $record_limit = 10;
             else
-                $record_limit = (int)$record_limit['system_value']; // what is the diff between system_value and value
+                $record_limit = (int)$record_limit['system_value'];
         } else
             $record_limit = (int)$record_limit;
         
@@ -58,7 +59,7 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                     if ($row['user_rights'] == 1)
                         $this->updateUserRight('user_rights', 0, $row['username'], $row['project_id']);
                 }
-                echo '<div class="red"><b>Record Limiter</b> is revoking right to <u>create record</u> (max allowed '.$record_limit.') and edit <u>user right</u> for all users in this dev project. To restore them either delete records or move to production.</div>';      
+                echo '<div class="red">You have reached maximum number of records allowed in development status; (max allowed '.$record_limit.'). Please either move project to production or delete records to continue testing.</div>'; 
             } else {
                 // restore
                 while($row = $project_users_query->fetch_assoc()){
