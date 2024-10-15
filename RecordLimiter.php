@@ -5,6 +5,9 @@ namespace WeillCornellMedicine\RecordLimiter;
 // check how to handle string input for record limit text field (error email perhaps?)
 // add record_limiter prefix to prevent global config variable collision
 // what is the diff between system_value and value
+// blocked user might not have the right to delete record
+// draft project
+// ues module log to find if module has acted on a project to many times
 
 class RecordLimiter extends \ExternalModules\AbstractExternalModule
 {

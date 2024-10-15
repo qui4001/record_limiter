@@ -26,7 +26,7 @@
     "project-settings": [
         {
           "key": "project_record_limit",
-          "name": "Record limit for this project(Defaults to 10)",
+          "name": "Record limit for this project(Defaults to system default 10)",
           "required": false,
           "type": "text"
         }
