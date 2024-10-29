@@ -5,9 +5,17 @@ namespace WeillCornellMedicine\RecordLimiter;
 // check how to handle string input for record limit text field (error email perhaps?)
 // add record_limiter prefix to prevent global config variable collision
 // what is the diff between system_value and value
-// blocked user might not have the right to delete record
+// blocked user might not have the right to delete record; give the user right to delete when RecordLimiter is active
 // draft project
 // ues module log to find if module has acted on a project to many times
+// User rights are checked at the beginning, so even if we toggle user right, it won't take effect unitl next upload attempt
+// simplest solution is to read log and send emails if cross threshold, or if a dev project uploads more tha 2 standard deviation than average
+// Setting the limit to 0 will show a diff message saying Admin has locked record addition
+// Rollback the last transaction that caused the data to cross limit
+// Hijack the upload API and data import tool, and have them use those tools provided by EM
+// Use redcap_module_project_save_after to set project level record limit to null so system level record can kick in
+// disable export once limit is hit
+// error_log("This is a log message.");
 
 class RecordLimiter extends \ExternalModules\AbstractExternalModule
 {
@@ -21,6 +29,7 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
             $temp_query = "update redcap_user_rights set $field_name = $field_value WHERE username = '$user_name' and project_id = $project_id";
             \REDCap::logEvent("Updated User rights " . $user_name, "user = '" . $user_name. "'", $temp_query, NULL, NULL, $project_id);    
         } else {
+            // queryLogs
             $this->log('Failed to SET ' . $field_name. '=' .$field_value.' for ' .$user_name. ' in ' .$project_id);
         }
     }
@@ -51,28 +60,30 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                                                 from redcap_user_rights 
                                                 where project_id = ? and 
                                                     username not in (select username from redcap_user_information where super_user = 1)", [$project_id]);
+            $project = $this->getProject();
+
             if($project_result['status'] == 0 && $project_result['record_count'] >= $record_limit){
                 // revoke
                 while($row = $project_users_query->fetch_assoc()){
                     // Apply limit 1 > 0
-                    if ($row['record_create'] == 1)
-                        $this->updateUserRight('record_create', 0, $row['username'], $row['project_id']); 
+                    if($project->getRights($row['username'])['record_create'] == 1)
+                        $project->setRights($row['username'], ['record_create' => 0]);
 
                     // 1 Full Access > 0 No Access 
-                    if ($row['user_rights'] == 1)
-                        $this->updateUserRight('user_rights', 0, $row['username'], $row['project_id']);
+                    if($project->getRights($row['username'])['user_rights'] == 1)
+                        $project->setRights($row['username'], ['user_rights' => 0]);
                 }
                 echo '<div class="red">You have reached maximum number of records allowed in development status; (max allowed '.$record_limit.'). Please either move project to production or delete records to continue testing.</div>'; 
             } else {
                 // restore
                 while($row = $project_users_query->fetch_assoc()){
                     // Remove limit 0 > 1
-                    if ($row['record_create'] == 0)
-                        $this->updateUserRight('record_create', 1, $row['username'], $row['project_id']);
+                    if($project->getRights($row['username'])['record_create'] == 0)
+                        $project->setRights($row['username'], ['record_create' => 1]);
 
                     // 0 No Access > 1 Full Access
-                    if ($row['user_rights'] == 0)
-                        $this->updateUserRight('user_rights', 1, $row['username'], $row['project_id']);
+                    if($project->getRights($row['username'])['user_rights'] == 0)
+                        $project->setRights($row['username'], ['user_rights' => 1]);
                 }
             }
         }
