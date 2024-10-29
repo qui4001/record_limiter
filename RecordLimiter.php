@@ -16,6 +16,7 @@ namespace WeillCornellMedicine\RecordLimiter;
 // Use redcap_module_project_save_after to set project level record limit to null so system level record can kick in
 // disable export once limit is hit
 // error_log("This is a log message.");
+// update redcap_external_module_settings table in redcap_module_project_save_after hook
 
 class RecordLimiter extends \ExternalModules\AbstractExternalModule
 {
@@ -70,8 +71,14 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                         $project->setRights($row['username'], ['record_create' => 0]);
 
                     // 1 Full Access > 0 No Access 
-                    if($project->getRights($row['username'])['user_rights'] == 1)
+                    if($project->getRights($row['username'])['user_rights'] == 1){
                         $project->setRights($row['username'], ['user_rights' => 0]);
+                        $this->log('user_rights');
+                        // we don't take away record_delete when restoring
+                        if($project->getRights($row['username'])['record_delete'] == 0){
+                            $project->setRights($row['username'], ['record_delete' => 1]);
+                        }
+                    }
                 }
                 echo '<div class="red">You have reached maximum number of records allowed in development status; (max allowed '.$record_limit.'). Please either move project to production or delete records to continue testing.</div>'; 
             } else {
@@ -82,8 +89,33 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                         $project->setRights($row['username'], ['record_create' => 1]);
 
                     // 0 No Access > 1 Full Access
-                    if($project->getRights($row['username'])['user_rights'] == 0)
+                    $em_dir = $this->getModuleDirectoryName();
+                    $em_prefix = substr($em_dir, 0, strrpos($em_dir, '_'));
+                    $em_id_query = $this->query("select external_module_id from redcap_external_modules where directory_prefix = ?", [$em_prefix]);
+                    $em_id = $em_id_query->fetch_assoc()['external_module_id'];
+
+                    $em_user_rights_query = $this->query(
+                        "select *
+                        from redcap_external_modules_log
+                        where 
+                            external_module_id = ? and 
+                            project_id = ? and 
+                            message = 'user_rights' and
+                            ui_id not in (select ui_id from redcap_user_information where super_user = 1)",
+                        [$em_id, $project_id]
+                    );
+                    
+                    if($em_user_rights_query->num_rows == 1){
                         $project->setRights($row['username'], ['user_rights' => 1]);
+
+                        $em_log_id = $em_user_rights_query->fetch_assoc()['log_id'];
+                        $this->query(
+                            "delete
+                            from redcap_external_modules_log
+                            where log_id = ?",
+                            [$em_log_id]
+                        );
+                    }
                 }
             }
         }
