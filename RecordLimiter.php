@@ -1,30 +1,42 @@
 <?php
 namespace WeillCornellMedicine\RecordLimiter;
 
+// Default goes to redcap admin? is it possible to exceptions to new emails?
+// Do I need to EM log deletion of porject level when copying project?
+// * admin email is in redcap_config table (send emial to study team?)
 // Add limit info on Add record page yellow banner
 // set system level value for email cadence and bulk upload threshold
-// disable data and api export(redcap_module_api_before) once limit is hit
+// * disable data and api export(redcap_module_api_before) once limit is hit
 // check how to handle string input for record limit text field
 // add record_limiter prefix to config.json to prevent global config variable collision
 // what is the diff between system_value and value
 
+// No needed because we are disabling api import/export using the same hook
+// use hook redcap_module_api_before to send out email if project has records more than limit
+
 class RecordLimiter extends \ExternalModules\AbstractExternalModule
 {
+    private $em_id;
+
+    public function __construct(){
+        parent::__construct();
+
+        $em_dir = $this->getModuleDirectoryName();
+        $em_prefix = substr($em_dir, 0, strrpos($em_dir, '_'));
+        $em_id_query = $this->query("select external_module_id from redcap_external_modules where directory_prefix = ?", [$em_prefix]);
+        $this->em_id = $em_id_query->fetch_assoc()['external_module_id'];
+    }
+
     function redcap_module_project_save_after($project_id, $msg_flag, $project_title, $user_id){
         // unknown interaction with record_cache_complete flag
-        if($msg_flag == 'copiedproject'){
-            $em_dir = $this->getModuleDirectoryName();
-            $em_prefix = substr($em_dir, 0, strrpos($em_dir, '_'));
-            $em_id_query = $this->query("select external_module_id from redcap_external_modules where directory_prefix = ?", [$em_prefix]);
-            $em_id = $em_id_query->fetch_assoc()['external_module_id'];
-            
-            $project_export = $this->query("
+        if($msg_flag == 'copiedproject'){            
+            $this->query("
                 delete
                 from redcap_external_module_settings 
                 where 
                     project_id = ? and 
                     `key` = 'project_record_limit' and
-                    external_module_id = ?", [$project_id, $em_id]
+                    external_module_id = ?", [$project_id, $this->em_id]
             );
         }
     }
@@ -83,11 +95,6 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                         $project->setRights($row['username'], ['record_create' => 1]);
 
                     // 0 No Access > 1 Full Access
-                    $em_dir = $this->getModuleDirectoryName();
-                    $em_prefix = substr($em_dir, 0, strrpos($em_dir, '_'));
-                    $em_id_query = $this->query("select external_module_id from redcap_external_modules where directory_prefix = ?", [$em_prefix]);
-                    $em_id = $em_id_query->fetch_assoc()['external_module_id'];
-
                     $em_user_rights_query = $this->query(
                         "select *
                         from redcap_external_modules_log
@@ -96,7 +103,7 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                             project_id = ? and 
                             message = 'user_rights' and
                             ui_id not in (select ui_id from redcap_user_information where super_user = 1)",
-                        [$em_id, $project_id]
+                        [$this->em_id, $project_id]
                     );
                     
                     if($em_user_rights_query->num_rows == 1){
