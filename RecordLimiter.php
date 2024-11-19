@@ -57,13 +57,15 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
         if(!$user_info->isSuperUser()){
             $current_user = $user_info->getUsername();
             
+            // find record count of this project
             $project_query = $this->query("SELECT project_id, status, record_count
                                             FROM redcap_projects 
                                                 left join redcap_record_counts using (project_id) 
                                             where project_id = ?", [$project_id]);
             $project_result = $project_query->fetch_assoc();
 
-            $project_users_query = $this->query("SELECT username, project_id, record_create, user_rights 
+            // find users who will have their rights revoked
+            $project_users_query = $this->query("SELECT username, project_id, record_create, user_rights, data_export_instruments, api_export
                                                 from redcap_user_rights 
                                                 where project_id = ? and 
                                                     username not in (select username from redcap_user_information where super_user = 1)", [$project_id]);
@@ -71,6 +73,8 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
 
             if($project_result['status'] == 0 && $project_result['record_count'] >= $record_limit){
                 // revoke
+                $pre_inst_export = array();
+
                 while($row = $project_users_query->fetch_assoc()){
                     // Apply limit 1 > 0
                     if($project->getRights($row['username'])['record_create'] == 1)
@@ -85,7 +89,24 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                             $project->setRights($row['username'], ['record_delete' => 1]);
                         }
                     }
+
+                    $pre_inst_export_pairs = explode('][', $row['data_export_instruments']);
+                    $revoked_inst_export = '';
+                    $temp = array();
+                    foreach($pre_inst_export_pairs as $pair){
+                        $p = str_replace(['[',']'], '', $pair);
+                        $kv = explode(',', $p);
+                        $temp += [$kv[0] => (int)$kv[1]];
+                        $revoked_inst_export .= '['. $kv[0] . ',' . 0 .']';
+                    }
+                    $pre_inst_export += [$row['username'] => $temp];
+
+                    $this->query("UPDATE redcap_user_rights 
+                                set data_export_instruments = ? 
+                                where username = ? and project_id = ?", [$revoked_inst_export, $row['username'], $project_id]);
+                    
                 }
+                $this->log(json_encode($pre_inst_export));
                 echo '<div class="red">You have reached maximum number of records allowed in development status; (max allowed '.$record_limit.'). Please either move project to production or delete records to continue testing.</div>'; 
             } else {
                 // restore
@@ -118,9 +139,46 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                         );
                     }
                 }
-            }
-        }
 
-        
-    }
-}
+                $em_inst_restore = $this->query(
+                    "select *
+                    from redcap_external_modules_log
+                    where 
+                        external_module_id = ? and 
+                        project_id = ? and 
+                        message != 'user_rights' and
+                        ui_id not in (select ui_id from redcap_user_information where super_user = 1)",
+                    [$this->em_id, $project_id]
+                );
+
+                if($em_inst_restore->num_rows == 1){
+                    $instruments = \REDCap::getInstrumentNames();
+                    $result = $em_inst_restore->fetch_assoc();
+                    $em_inst_restore_msg = json_decode($result['message'], True);
+                    foreach($em_inst_restore_msg as $user => $all_inst){
+                        $temp = '';
+                        foreach($all_inst as $inst_name => $inst_val){
+                            if(array_key_exists($inst_name, $instruments))
+                                $temp .= '['.$inst_name.','. $inst_val .']';
+                            else
+                                $temp .= '['.$inst_name.','. 1 .']'; // if a new instrument was added; we give them right to export data
+                        }
+                        
+                        $this->query("UPDATE redcap_user_rights
+                            set data_export_instruments = ? 
+                            where username = ? and project_id = ?", [$temp, $user, $project_id]);
+                    }
+                    
+                    $em_log_id = $result['log_id'];
+                    $this->query(
+                        "delete
+                        from redcap_external_modules_log
+                        where log_id = ?",
+                        [$em_log_id]
+                    );
+                }
+
+            } # revoke
+        } # Superuser
+    } # redcap_every_page_top
+} # class RecordLimiter
