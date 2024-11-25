@@ -1,11 +1,8 @@
 <?php
 namespace WeillCornellMedicine\RecordLimiter;
 
-// Default goes to redcap admin? is it possible to exceptions to new emails?
 // Do I need to EM log deletion of porject level when copying project?
-// * admin email is in redcap_config table (send emial to study team?)
 // Add limit info on Add record page yellow banner
-// set system level value for email cadence and bulk upload threshold
 // * disable data and api export(redcap_module_api_before) once limit is hit
 // check how to handle string input for record limit text field
 // add record_limiter prefix to config.json to prevent global config variable collision
@@ -90,10 +87,22 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                     $rights = array();
                     $bkup += array('rights' => &$rights);
 
-                    // Apply limit 1 > 0
+                    // record_create 1 > 0
                     if($project->getRights($row['username'])['record_create'] == 1){
                         $project->setRights($row['username'], ['record_create' => 0]);
                         $rights += ['record_create' => (int)1];
+                    }
+
+                    // design 1 > 0
+                    if($project->getRights($row['username'])['design'] == 1){
+                        $project->setRights($row['username'], ['design' => 0]);
+                        $rights += ['design' => (int)1];
+                    }
+
+                    // api_export 1 > 0
+                    if($project->getRights($row['username'])['api_export'] == 1){
+                        $project->setRights($row['username'], ['api_export' => 0]);
+                        $rights += ['api_export' => (int)1];
                     }
 
                     // 1 Full Access > 0 No Access 
@@ -159,7 +168,7 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
 
                     }
                 }
-                
+
             } # revoke
         } # Superuser
     } # redcap_every_page_top
