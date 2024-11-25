@@ -3,13 +3,10 @@ namespace WeillCornellMedicine\RecordLimiter;
 
 // Do I need to EM log deletion of porject level when copying project?
 // Add limit info on Add record page yellow banner
-// * disable data and api export(redcap_module_api_before) once limit is hit
 // check how to handle string input for record limit text field
 // add record_limiter prefix to config.json to prevent global config variable collision
 // what is the diff between system_value and value
-
-// No needed because we are disabling api import/export using the same hook
-// use hook redcap_module_api_before to send out email if project has records more than limit
+// Relationship between api import/export and api delete
 
 class RecordLimiter extends \ExternalModules\AbstractExternalModule
 {
@@ -20,7 +17,7 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
 
         $em_dir = $this->getModuleDirectoryName(); // record_limiter_v1.0.0
         $em_prefix = substr($em_dir, 0, strrpos($em_dir, '_')); // record_limiter
-        $em_id_query = $this->query("select external_module_id from redcap_external_modules where directory_prefix = ?", [$em_prefix]);
+        $em_id_query = $this->query("select external_module_id from redcap_external_modules where directory_prefix = ?", [$em_prefix]); // $this->PREFIX
         $this->em_id = $em_id_query->fetch_assoc()['external_module_id'];
     }
 
@@ -105,12 +102,24 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                         $rights += ['api_export' => (int)1];
                     }
 
+                    // api_import 1 > 0
+                    if($project->getRights($row['username'])['api_import'] == 1){
+                        $project->setRights($row['username'], ['api_import' => 0]);
+                        $rights += ['api_import' => (int)1];
+                    }
+
                     // 1 Full Access > 0 No Access 
                     if($project->getRights($row['username'])['user_rights'] == 1){
                         $project->setRights($row['username'], ['user_rights' => 0]);
                         $rights += ['user_rights' => (int)1];
                         if($project->getRights($row['username'])['record_delete'] == 0)
                             $project->setRights($row['username'], ['record_delete' => 1]);                        
+                    }
+
+                    // data_import_tool 1 > 0
+                    if($project->getRights($row['username'])['data_import_tool'] == 1){
+                        $project->setRights($row['username'], ['data_import_tool' => 0]);
+                        $rights += ['data_import_tool' => (int)1];
                     }
 
                     $rights += ['data_export_instruments' => $row['data_export_instruments']];
@@ -130,7 +139,7 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                                     where username = ? and project_id = ?", 
                                     [$revoked_inst_export, $row['username'], $project_id]);
 
-                        $this->log(json_encode($bkup));
+                        $this->log(json_encode($bkup), ['project_id' => $project_id]);
                     }
                 }
                 echo '<div class="red">
@@ -138,6 +147,7 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                 Please either move project to production or delete records to continue testing. </br>
                 Reach out to user with user-rights access if recrod deletion feature is unavailable.
                 </div>'; 
+                return "revoked";
             } else {
                 // restore
                 // check if superuser has modified instrument information to ensure restoration is valid
@@ -168,8 +178,14 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
 
                     }
                 }
-
+                return "restored";
             } # revoke
         } # Superuser
     } # redcap_every_page_top
+
+    // && in_array($post['action'], ['export', 'import'])
+    function redcap_module_api_before($project_id, $post){
+        if($this->redcap_every_page_top($project_id) == "revoked" && $post['content'] == 'record')
+            return "RecordLimiter disabled API import/export.";
+    }
 } # class RecordLimiter
