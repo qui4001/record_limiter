@@ -146,6 +146,7 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                     }
 
                     if($already_active == 0){
+                        // we are ignoring changes in instrument name/right made by a superuser
                         $this->query("UPDATE redcap_user_rights 
                                     set data_export_instruments = ? 
                                     where username = ? and project_id = ?", 
@@ -190,12 +191,36 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                 }
                 return "restored";
             } # revoke
+        } else {
+            $already_active = $this->query("SELECT count(*) count from redcap_external_modules_log where project_id = ?", [$project_id]);
+            $already_active = $already_active->fetch_assoc()['count'];
+            if($already_active != 0){
+                $old_rights = $this->query(
+                    "select log_id, message
+                    from redcap_external_modules_log
+                    where 
+                        external_module_id = ? and 
+                        project_id = ?",
+                    [$this->em_id, $project_id]
+                );
+                
+                $superuser_msg = '';
+                while($row = $old_rights->fetch_assoc()){
+                    $superuser_msg .= $row['message'];
+                }
+                
+                echo '<div class="green">RL is active on this project and it will continioulsy adjust user rights, excluding instruments related changes.</br>During RL deactivation, following rights will be restored and missing instruments will be ignored.</br>' 
+                .$superuser_msg. 
+                '</div>';
+                // return "revoked"; // We do not need this because if we are here, the caller is a superuser
+            }           
         } # Superuser
     } # redcap_every_page_top
 
     // API Export to download existing record
     // API Import/Update needed for add new record or update existing recor to the project
     function redcap_module_api_before($project_id, $post){
+        // skip this if statement if the user is a superuser
         if($this->redcap_every_page_top($project_id) == "revoked" && $post['content'] == 'record' && in_array($post['action'], ['export', 'import']))
             return "RecordLimiter disabled API import/export.";
     }
