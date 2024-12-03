@@ -1,12 +1,24 @@
 <?php
 namespace WeillCornellMedicine\RecordLimiter;
 
+// xdebug trace; on dev
+// superuser needs a header saying instrument info should not change
+//  check if superuser has modified instrument information to ensure restoration is valid
+//  force restore as a option? (Could make REDCap unstable)
 // Do I need to EM log deletion of porject level when copying project?
 // Add limit info on Add record page yellow banner
 // check how to handle string input for record limit text field
 // add record_limiter prefix to config.json to prevent global config variable collision
 // what is the diff between system_value and value
 // Relationship between api import/export and api delete
+// delete log during RL global deletion(during unloading from control panel)
+// delete log when project limit is increased
+
+// if superuser grants right(i.e. record create) to reg user during RL activation; 
+// that user won'd be able to utilize that right, because RL will kick in with page referesh; 
+// to solve it superuser needs to increaseproject level limit
+
+// add superuser banner listing user-rights and project properties RL is handling
 
 class RecordLimiter extends \ExternalModules\AbstractExternalModule
 {
@@ -145,13 +157,11 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                 echo '<div class="red">
                 You have reached maximum number of records allowed in development status; (max allowed '.$record_limit.'). </br> 
                 Please either move project to production or delete records to continue testing. </br>
-                Reach out to user with user-rights access if recrod deletion feature is unavailable.
+                If record deletection right is not available, reach out to the project administrator.
                 </div>'; 
                 return "revoked";
             } else {
                 // restore
-                // check if superuser has modified instrument information to ensure restoration is valid
-                // force restore as a option?
 
                 $old_rights = $this->query(
                     "select log_id, message
@@ -183,9 +193,10 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
         } # Superuser
     } # redcap_every_page_top
 
-    // && in_array($post['action'], ['export', 'import'])
+    // API Export to download existing record
+    // API Import/Update needed for add new record or update existing recor to the project
     function redcap_module_api_before($project_id, $post){
-        if($this->redcap_every_page_top($project_id) == "revoked" && $post['content'] == 'record')
+        if($this->redcap_every_page_top($project_id) == "revoked" && $post['content'] == 'record' && in_array($post['action'], ['export', 'import']))
             return "RecordLimiter disabled API import/export.";
     }
 } # class RecordLimiter
