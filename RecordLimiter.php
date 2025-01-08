@@ -239,16 +239,15 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                 );
                 
                 $superuser_msg = '';
-                while($row = $old_rights->fetch_assoc()){
-                    $superuser_msg .= $row['message'];
-                }
-                
-                // there are three cases to consider
-                // 1. regular 0/1 rights; will be restored with next refresh
-                // 2. 0-3 instrument rights; will be restored during next deactivation
-                // 3. Instrument name chance; old instrument right will be lost since no matching instrument is found
+                // while($row = $old_rights->fetch_assoc()){
+                //     $superuser_msg .= $row['message'];
+                // }
 
-                echo '<div class="green">RL is active on this project and it will continioulsy adjust user rights, excluding instruments related changes.</br>During RL deactivation, following rights will be restored and missing instruments will be ignored.</br>' 
+                echo '<div class="green">
+                RL is tracking Record creation/deletion, Project design, API import/export, User rights, Data import/export tool rights.</br>
+                Changes to any of these user rights will be restored on page refresh and module deactivation (Except record deletion). </br>
+                Changes to instrument right will be restored during module deactivation. </br>
+                Changes to instrument name will be reconciled during module deactivation.' 
                 .$superuser_msg. 
                 '</div>';
                 // return "revoked"; // We do not need this because if we are here, the caller is a superuser
