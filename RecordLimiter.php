@@ -1,6 +1,13 @@
 <?php
 namespace WeillCornellMedicine\RecordLimiter;
 
+// What does RL do?
+// active: Only users with user-right access will gain record-deletion right
+// active > inactive: theses users get to keep record-deletion right
+// Copy existing project does not carry project level record limit
+// Superuser are soft locked
+// Superuser get notification things being tracked and what will happen if those are changed
+
 // xdebug trace; on dev
 // superuser needs a header saying instrument info should not change
 //  check if superuser has modified instrument information to ensure restoration is valid
@@ -35,7 +42,7 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
 
     function redcap_module_project_save_after($project_id, $msg_flag, $project_title, $user_id){
         // unknown interaction with record_cache_complete flag
-        if($msg_flag == 'copiedproject'){            
+        if($msg_flag == 'copiedproject'){
             $this->query("
                 delete
                 from redcap_external_module_settings 
@@ -137,16 +144,13 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                     $rights += ['data_export_instruments' => $row['data_export_instruments']];
                     $pre_inst_export_pairs = explode('][', $row['data_export_instruments']);
                     $revoked_inst_export = '';
-                    $temp = array();
                     foreach($pre_inst_export_pairs as $pair){
                         $p = str_replace(['[',']'], '', $pair);
                         $kv = explode(',', $p);
-                        $temp += [$kv[0] => (int)$kv[1]];
-                        $revoked_inst_export .= '['. $kv[0] . ',' . 0 .']';
+                        $revoked_inst_export .= '['. $kv[0] . ',' . 0 .']'; // revoked instrument right string
                     }
 
                     if($already_active == 0){
-                        // we are ignoring changes in instrument name/right made by a superuser
                         $this->query("UPDATE redcap_user_rights 
                                     set data_export_instruments = ? 
                                     where username = ? and project_id = ?", 
@@ -160,7 +164,7 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                 Please either move project to production or delete records to continue testing. </br>
                 If record deletection right is not available, reach out to the project administrator.
                 </div>'; 
-                return "revoked";
+                return "revoked"; // Read more on values returned by hook function; perhaps use 0/1 for implicite type conversion
             } else {
                 // restore
 
@@ -178,7 +182,37 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
 
                     $username = $message['username'];
                     foreach($message['rights'] as $right_name => $old_value){
-                        $this->query("UPDATE redcap_user_rights set $right_name = ? where username = ? and project_id = ?",[$old_value, $username, $project_id]);
+                        if($right_name != "data_export_instruments"){
+                            // USE $project->setRights($row['username'], ['api_import' => 0])
+                            $this->query("UPDATE redcap_user_rights set $right_name = ? where username = ? and project_id = ?",[$old_value, $username, $project_id]);
+                        }else{
+                            $saved_inst_rights = array();
+                            $pairs = explode('][', $old_value);
+                            foreach($pairs as $p){
+                                $temp = str_replace(['[',']'], '', $p);
+                                $kv = explode(',', $temp);
+                                $saved_inst_rights[$kv[0]] = (int)$kv[1];
+                            }
+
+                            $restored_inst_rights = '';
+                            $current_inst_rights = $this->query("select data_export_instruments from redcap_user_rights where username = ? and project_id = ?", [$username, $project_id]);
+                            $current_inst_rights = $current_inst_rights->fetch_assoc()['data_export_instruments'];
+                            $current_inst_rights = explode('][', $current_inst_rights);
+                            foreach($current_inst_rights as $inst_right){
+                                $temp = str_replace(['[',']'], '', $inst_right);
+                                $kv = explode(',', $temp);
+                                if(array_key_exists($kv[0], $saved_inst_rights)){
+                                    $restored_inst_rights .= '['. $kv[0] . ',' . $saved_inst_rights[$kv[0]] .']';
+                                }else{
+                                    $restored_inst_rights .= '['. $kv[0] . ',' . (int)$kv[1] .']';
+                                }
+                            }
+                        
+                            $this->query("UPDATE redcap_user_rights 
+                                        set data_export_instruments = ? 
+                                        where username = ? and project_id = ?", 
+                                        [$restored_inst_rights, $username, $project_id]);
+                        }
 
                         $this->query(
                             "delete
@@ -209,6 +243,11 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                     $superuser_msg .= $row['message'];
                 }
                 
+                // there are three cases to consider
+                // 1. regular 0/1 rights; will be restored with next refresh
+                // 2. 0-3 instrument rights; will be restored during next deactivation
+                // 3. Instrument name chance; old instrument right will be lost since no matching instrument is found
+
                 echo '<div class="green">RL is active on this project and it will continioulsy adjust user rights, excluding instruments related changes.</br>During RL deactivation, following rights will be restored and missing instruments will be ignored.</br>' 
                 .$superuser_msg. 
                 '</div>';
