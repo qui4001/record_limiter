@@ -244,10 +244,9 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
                 // }
 
                 echo '<div class="green">
-                RL is tracking Record creation/deletion, Project design, API import/export, User rights, Data import/export tool rights.</br>
-                Changes to any of these user rights will be restored on page refresh and module deactivation (Except record deletion). </br>
-                Changes to instrument right will be restored during module deactivation. </br>
-                Changes to instrument name will be reconciled during module deactivation.' 
+                Record Limiter is tracking record creation/deletion, project design, API import/export, user rights and data import/export tool.</br>
+                Changes to any of these user rights(Except record deletion) will be restored on page refresh by end user and during module deactivation. </br>
+                During module deactivation, changes to instrument right will be restored and changes to instrument name will be reconciled.' 
                 .$superuser_msg. 
                 '</div>';
                 // return "revoked"; // We do not need this because if we are here, the caller is a superuser
