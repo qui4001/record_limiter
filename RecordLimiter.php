@@ -245,7 +245,7 @@ class RecordLimiter extends \ExternalModules\AbstractExternalModule
 
                 echo '<div class="green">
                 Record Limiter is tracking record creation/deletion, project design, API import/export, user rights and data import/export tool.</br>
-                Changes to any of these user rights(Except record deletion) will be restored on page refresh by end user and during module deactivation. </br>
+                Changes to any of these user rights(except record deletion) will be restored on page refresh by end user and also during module deactivation. </br>
                 During module deactivation, changes to instrument right will be restored and changes to instrument name will be reconciled.' 
                 .$superuser_msg. 
                 '</div>';
